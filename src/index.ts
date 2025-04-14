@@ -1,6 +1,10 @@
 import { program } from 'commander';
 import { JSONFilePreset } from 'lowdb/node';
 import { Low } from 'lowdb';
+import fs from 'fs';
+import path from 'path';
+import { stringify } from 'csv-stringify/sync';
+import { parse } from 'csv-parse/sync';
 
 type Player = {
   name: string;
@@ -336,6 +340,69 @@ function displayPairingStats(db: Low<Data>) {
   });
 }
 
+async function exportSessionToCSV(db: Low<Data>, sessionId: string, outputPath: string) {
+  const session = db.data.sessions.find(session => session.id === sessionId);
+  if (!session) {
+    console.error(`Session with ID ${sessionId} not found`);
+    return;
+  }
+
+  const rows = [['Round', 'Court', 'Team 1 Player 1', 'Team 1 Player 2', 'Team 2 Player 1', 'Team 2 Player 2', 'Points Team 1', 'Points Team 2']];
+
+  session.rounds.forEach(round => {
+    round.sets.forEach(set => {
+      const team1 = set.teams[0];
+      const team2 = set.teams[1];
+      rows.push([
+        round.id,
+        set.court.toString(),
+        team1.team.players[0],
+        team1.team.players[1],
+        team2.team.players[0],
+        team2.team.players[1],
+        '0',
+        '0' 
+      ]);
+    });
+  });
+
+  const csvContent = stringify(rows);
+  const fullPath = path.resolve(outputPath, `${sessionId}.csv`);
+  fs.writeFileSync(fullPath, csvContent);
+  console.log(`Session exported to ${fullPath}`);
+}
+
+async function importSessionFromCSV(db: Low<Data>, sessionId: string, inputPath: string) {
+  const session = db.data.sessions.find(session => session.id === sessionId);
+  if (!session) {
+    console.error(`Session with ID ${sessionId} not found`);
+    return;
+  }
+
+  const csvContent = fs.readFileSync(inputPath, 'utf-8');
+  const rows = parse(csvContent, { columns: true });
+
+  rows.forEach((row: any) => {
+    const round = session.rounds.find(r => r.id === row.Round);
+    if (!round) {
+      console.error(`Round with ID ${row.Round} not found in session ${sessionId}`);
+      return;
+    }
+
+    const set = round.sets.find(s => s.court === parseInt(row.Court));
+    if (!set) {
+      console.error(`Set on court ${row.Court} not found in round ${row.Round}`);
+      return;
+    }
+
+    set.teams[0].points = parseInt(row['Points Team 1']);
+    set.teams[1].points = parseInt(row['Points Team 2']);
+  });
+
+  await db.write();
+  console.log(`Session ${sessionId} updated from ${inputPath}`);
+}
+
 async function main() {
   const defaultData: Data = {
     players: [],
@@ -377,6 +444,16 @@ async function main() {
   session.command('generate-rounds')
     .argument('<date>')
     .action(async (date) => generateRounds(db, date));
+
+  session.command('export-csv')
+    .argument('<sessionId>')
+    .argument('<outputPath>')
+    .action(async (sessionId, outputPath) => exportSessionToCSV(db, sessionId, outputPath));
+
+  session.command('import-csv')
+    .argument('<sessionId>')
+    .argument('<inputPath>')
+    .action(async (sessionId, inputPath) => importSessionFromCSV(db, sessionId, inputPath));
 
   await program.parseAsync(process.argv);
 }
