@@ -44,6 +44,9 @@ type Data = {
 type RankedPlayer = {
   player: Player;
   points: number;
+  wins: number;
+  pointRatio: number;
+  totalPointsPlayed: number;
 }
 
 async function addPlayer(db: Low<Data>, name: string) {
@@ -53,7 +56,10 @@ async function addPlayer(db: Low<Data>, name: string) {
 }
 
 /*
-  Given the players in the database, ranks them by their points
+  Given the players in the database, rank them.
+
+  1. Order by wins
+  2. Order by point ratio
 */
 function rankPlayers(db: Low<Data>): RankedPlayer[] {
   if (!db.data) {
@@ -61,32 +67,82 @@ function rankPlayers(db: Low<Data>): RankedPlayer[] {
     return [];
   }
 
-  const playerPoints: Record<string, number> = {};
+  const playerStats: Record<string, { 
+    points: number,
+    wins: number,
+    totalPointsPlayed: number
+  }> = {};
 
-  // Calculate total points for each player
+  // Initialize stats for all players
+  db.data.players.forEach(player => {
+    playerStats[player.name] = {
+      points: 0,
+      wins: 0,
+      totalPointsPlayed: 0
+    };
+  });
+
+  // Calculate statistics for each player
   db.data.sessions.forEach(session => {
     session.rounds.forEach(round => {
       round.sets.forEach(set => {
+        // Calculate total points in this set
+        const totalPointsInSet = set.teams.reduce((sum, team) => sum + team.points, 0);
+        
+        // Determine the winning team
+        let winningTeam: Team | null = null;
+        if (set.teams.length === 2) {
+          if (set.teams[0].points > set.teams[1].points) {
+            winningTeam = set.teams[0].team;
+          } else if (set.teams[1].points > set.teams[0].points) {
+            winningTeam = set.teams[1].team;
+          }
+        }
+
+        // Update player statistics
         set.teams.forEach(teamSet => {
-          teamSet.team.players.forEach(player => {
-            if (!playerPoints[player]) {
-              playerPoints[player] = 0;
+          teamSet.team.players.forEach(playerName => {
+            if (!playerStats[playerName]) {
+              playerStats[playerName] = { points: 0, wins: 0, totalPointsPlayed: 0 };
             }
-            playerPoints[player] += teamSet.points;
+            
+            // Add points
+            playerStats[playerName].points += teamSet.points;
+            
+            // Add to total points played
+            playerStats[playerName].totalPointsPlayed += totalPointsInSet;
+            
+            // Increment wins if this player was on the winning team
+            if (winningTeam && winningTeam.players.includes(playerName)) {
+              playerStats[playerName].wins += 1;
+            }
           });
         });
       });
     });
   });
 
-  // Create a list of players with their total points
-  const rankedPlayers = db.data.players.map(player => ({
-    player: player,
-    points: playerPoints[player.name] || 0
-  }));
+  // Create a list of ranked players with calculated statistics
+  const rankedPlayers = db.data.players.map(player => {
+    const stats = playerStats[player.name] || { points: 0, wins: 0, totalPointsPlayed: 0 };
+    return {
+      player: player,
+      points: stats.points,
+      wins: stats.wins,
+      totalPointsPlayed: stats.totalPointsPlayed,
+      pointRatio: stats.totalPointsPlayed > 0 ? stats.points / stats.totalPointsPlayed : 0
+    };
+  });
 
-  // Sort players by points in descending order
-  rankedPlayers.sort((a, b) => b.points - a.points);
+  // Sort players: first by wins, then by point ratio for ties
+  rankedPlayers.sort((a, b) => {
+    // First sort by wins
+    if (b.wins !== a.wins) {
+      return b.wins - a.wins;
+    }
+    // If wins are tied, sort by point ratio
+    return b.pointRatio - a.pointRatio;
+  });
 
   return rankedPlayers;
 }
@@ -94,8 +150,81 @@ function rankPlayers(db: Low<Data>): RankedPlayer[] {
 function displayRankedPlayers(db: Low<Data>) {
   const rankedPlayers = rankPlayers(db);
   console.log("Ranked Players:");
+  
+  // Find the max length of player names for proper padding
+  const maxPlayerNameLength = Math.max(10, ...rankedPlayers.map(p => p.player.name.length));
+  
+  // Headers
+  console.log(
+    "Rank".padEnd(6) +
+    "Player".padStart(maxPlayerNameLength + 2).padEnd(maxPlayerNameLength + 4) +
+    "Wins".padEnd(6) +
+    "Losses".padEnd(8) +
+    "Points Won".padEnd(12) +
+    "Points Played".padEnd(15) +
+    "Win Rate".padEnd(10) +
+    "Point Ratio"
+  );
+  
+  console.log(
+    "----".padEnd(6) +
+    "-".repeat(maxPlayerNameLength + 3).padEnd(maxPlayerNameLength + 4) +
+    "----".padEnd(6) +
+    "------".padEnd(8) +
+    "----------".padEnd(12) +
+    "-------------".padEnd(15) +
+    "--------".padEnd(10) +
+    "----------"
+  );
+  
   rankedPlayers.forEach((rankedPlayer, index) => {
-    console.log(`${index + 1}. ${rankedPlayer.player.name} - ${rankedPlayer.points} points`);
+    const playerName = rankedPlayer.player.name;
+    const losses = calculateLosses(db, playerName);
+    const totalSets = rankedPlayer.wins + losses;
+    const winRate = totalSets > 0 ? (rankedPlayer.wins / totalSets * 100).toFixed(1) + '%' : '0.0%';
+    const pointsPlayed = rankedPlayer.pointRatio > 0 ? Math.round(rankedPlayer.points / rankedPlayer.pointRatio) : 0;
+    const pointRatio = (rankedPlayer.pointRatio * 100).toFixed(1) + '%';
+    
+    console.log(
+      `${(index + 1).toString().padEnd(4)} ` +
+      `${playerName.padStart(maxPlayerNameLength + 2).padEnd(maxPlayerNameLength + 4)}` +
+      `${rankedPlayer.wins.toString().padEnd(6)}` +
+      `${losses.toString().padEnd(8)}` +
+      `${rankedPlayer.points.toString().padEnd(12)}` +
+      `${pointsPlayed.toString().padEnd(15)}` +
+      `${winRate.padEnd(10)}` +
+      `${pointRatio}`
+    );
+  });
+}
+
+/**
+ * Displays a simplified version of the player rankings that is easy to share in messaging apps
+ */
+function displaySimpleRankedPlayers(db: Low<Data>) {
+  const rankedPlayers = rankPlayers(db);
+  console.log("🏆 Rankings 🏆");
+  
+  rankedPlayers.forEach((rankedPlayer, index) => {
+    const playerName = rankedPlayer.player.name;
+    const losses = calculateLosses(db, playerName);
+    const totalSets = rankedPlayer.wins + losses;
+    const winRate = totalSets > 0 ? Math.round(rankedPlayer.wins / totalSets * 100) : 0;
+    
+    // Calculate points lost
+    const pointsLost = rankedPlayer.totalPointsPlayed - rankedPlayer.points;
+    
+    // Emoji for top 3 players
+    let rankEmoji = "";
+    if (index === 0) rankEmoji = "🥇 ";
+    else if (index === 1) rankEmoji = "🥈 ";
+    else if (index === 2) rankEmoji = "🥉 ";
+    else rankEmoji = `${index + 1}. `;
+    
+    console.log(
+      `${rankEmoji}${playerName}: ${rankedPlayer.wins}W-${losses}L (${winRate}%), ` +
+      `${rankedPlayer.points}pts won - ${pointsLost}pts lost`
+    );
   });
 }
 
@@ -403,6 +532,37 @@ async function importSessionFromCSV(db: Low<Data>, sessionId: string, inputPath:
   console.log(`Session ${sessionId} updated from ${inputPath}`);
 }
 
+/*
+  Calculate the number of losses for a player by going through all sessions and sets
+*/
+function calculateLosses(db: Low<Data>, playerName: string): number {
+  let losses = 0;
+  
+  db.data.sessions.forEach(session => {
+    session.rounds.forEach(round => {
+      round.sets.forEach(set => {
+        // Check if the player is in this set
+        const playerTeamIndex = set.teams.findIndex(teamSet => 
+          teamSet.team.players.includes(playerName)
+        );
+        
+        // If player is in this set
+        if (playerTeamIndex !== -1) {
+          const otherTeamIndex = playerTeamIndex === 0 ? 1 : 0;
+          
+          // Ensure there are at least two teams and points are tracked
+          if (set.teams.length > 1 && set.teams[otherTeamIndex] && 
+              set.teams[playerTeamIndex].points < set.teams[otherTeamIndex].points) {
+            losses += 1;
+          }
+        }
+      });
+    });
+  });
+  
+  return losses;
+}
+
 async function main() {
   const defaultData: Data = {
     players: [],
@@ -418,6 +578,9 @@ async function main() {
 
   player.command('ranks')
     .action(async () => displayRankedPlayers(db));
+    
+  player.command('ranks-simple')
+    .action(async () => displaySimpleRankedPlayers(db));
 
   player.command('pairing-stats')
     .action(async () => displayPairingStats(db));
