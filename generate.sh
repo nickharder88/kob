@@ -1,0 +1,11 @@
+npm run start -- session create "2025-04-18"
+npm run start -- session add-player "2025-04-18" "Abe Binder"
+npm run start -- session add-player "2025-04-18" "Brandon Tartar"
+npm run start -- session add-player "2025-04-18" "Kyle Kowalski"
+npm run start -- session add-player "2025-04-18" "Reid Backstrom"
+npm run start -- session add-player "2025-04-18" "Victoria Kowalski"
+npm run start -- session add-player "2025-04-18" "Hogan Hsu"
+npm run start -- session add-player "2025-04-18" "David Yang"
+npm run start -- session add-player "2025-04-18" "Nick Harder"
+
+# npm run start -- session generate-rounds "2025-04-18"

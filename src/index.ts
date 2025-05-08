@@ -6,48 +6,13 @@ import path from 'path';
 import { stringify } from 'csv-stringify/sync';
 import { parse } from 'csv-parse/sync';
 
-type Player = {
-  name: string;
-}
-
-type Team = {
-  players: [string, string];
-}
-
-export type TeamSet = {
-  team: Team;
-  points: number;
-}
-
-export type KOBSet = {
-  id: string;
-  court: number;
-  teams: TeamSet[];
-};
-
-export type Round = {
-  id: string;
-  sets: KOBSet[];
-}
-
-type Session = {
-  id: string;
-  players: string[];
-  rounds: Round[]; // Changed from sets to rounds
-}
-
-type Data = {
-  players: Player[];
-  sessions: Session[];
-}
-
-type RankedPlayer = {
-  player: Player;
-  points: number;
-  wins: number;
-  pointRatio: number;
-  totalPointsPlayed: number;
-}
+import { 
+  calculateEloRatings, 
+  calculateEnhancedRankings, 
+  DEFAULT_ELO_CONFIG, 
+  PlayerRating, 
+  EnhancedRanking 
+} from './elo.js';
 
 async function addPlayer(db: Low<Data>, name: string) {
   const player = { name };
@@ -66,6 +31,13 @@ function rankPlayers(db: Low<Data>): RankedPlayer[] {
     console.error("Database is not initialized");
     return [];
   }
+
+  // Get Elo ratings
+  const eloRatings = calculateEloRatings(db);
+  const eloMap: Record<string, number> = {};
+  eloRatings.forEach((rating: PlayerRating) => {
+    eloMap[rating.name] = rating.elo;
+  });
 
   const playerStats: Record<string, { 
     points: number,
@@ -130,16 +102,28 @@ function rankPlayers(db: Low<Data>): RankedPlayer[] {
       points: stats.points,
       wins: stats.wins,
       totalPointsPlayed: stats.totalPointsPlayed,
-      pointRatio: stats.totalPointsPlayed > 0 ? stats.points / stats.totalPointsPlayed : 0
+      pointRatio: stats.totalPointsPlayed > 0 ? stats.points / stats.totalPointsPlayed : 0,
+      eloRating: eloMap[player.name] || DEFAULT_ELO_CONFIG.initialRating,
+      matchesPlayed: calculateMatches(db, player.name)
     };
-  });
+  })
+  .filter(player => player.matchesPlayed >= 8); // Only include players with at least 8 matches
 
-  // Sort players: first by wins, then by point ratio for ties
+  // Sort players by Elo rating (primary), wins (secondary), and point ratio (tertiary)
   rankedPlayers.sort((a, b) => {
-    // First sort by wins
+    // First sort by Elo rating
+    const eloA = a.eloRating || DEFAULT_ELO_CONFIG.initialRating;
+    const eloB = b.eloRating || DEFAULT_ELO_CONFIG.initialRating;
+    
+    if (eloB !== eloA) {
+      return eloB - eloA;
+    }
+    
+    // If Elo is tied, sort by wins
     if (b.wins !== a.wins) {
       return b.wins - a.wins;
     }
+    
     // If wins are tied, sort by point ratio
     return b.pointRatio - a.pointRatio;
   });
@@ -149,7 +133,7 @@ function rankPlayers(db: Low<Data>): RankedPlayer[] {
 
 function displayRankedPlayers(db: Low<Data>) {
   const rankedPlayers = rankPlayers(db);
-  console.log("Ranked Players:");
+  console.log("Ranked Players (Elo-Based - Minimum 8 matches required):");
   
   // Find the max length of player names for proper padding
   const maxPlayerNameLength = Math.max(10, ...rankedPlayers.map(p => p.player.name.length));
@@ -158,6 +142,7 @@ function displayRankedPlayers(db: Low<Data>) {
   console.log(
     "Rank".padEnd(6) +
     "Player".padStart(maxPlayerNameLength + 2).padEnd(maxPlayerNameLength + 4) +
+    "Elo".padEnd(8) +
     "Wins".padEnd(6) +
     "Losses".padEnd(8) +
     "Points Won".padEnd(12) +
@@ -169,6 +154,7 @@ function displayRankedPlayers(db: Low<Data>) {
   console.log(
     "----".padEnd(6) +
     "-".repeat(maxPlayerNameLength + 3).padEnd(maxPlayerNameLength + 4) +
+    "---".padEnd(8) +
     "----".padEnd(6) +
     "------".padEnd(8) +
     "----------".padEnd(12) +
@@ -184,10 +170,12 @@ function displayRankedPlayers(db: Low<Data>) {
     const winRate = totalSets > 0 ? (rankedPlayer.wins / totalSets * 100).toFixed(1) + '%' : '0.0%';
     const pointsPlayed = rankedPlayer.pointRatio > 0 ? Math.round(rankedPlayer.points / rankedPlayer.pointRatio) : 0;
     const pointRatio = (rankedPlayer.pointRatio * 100).toFixed(1) + '%';
+    const elo = Math.round(rankedPlayer.eloRating || DEFAULT_ELO_CONFIG.initialRating);
     
     console.log(
       `${(index + 1).toString().padEnd(4)} ` +
       `${playerName.padStart(maxPlayerNameLength + 2).padEnd(maxPlayerNameLength + 4)}` +
+      `${elo.toString().padEnd(8)}` +
       `${rankedPlayer.wins.toString().padEnd(6)}` +
       `${losses.toString().padEnd(8)}` +
       `${rankedPlayer.points.toString().padEnd(12)}` +
@@ -203,7 +191,7 @@ function displayRankedPlayers(db: Low<Data>) {
  */
 function displaySimpleRankedPlayers(db: Low<Data>) {
   const rankedPlayers = rankPlayers(db);
-  console.log("🏆 Rankings 🏆");
+  console.log("🏆 Rankings (Min. 8 matches required) 🏆");
   
   rankedPlayers.forEach((rankedPlayer, index) => {
     const playerName = rankedPlayer.player.name;
@@ -533,6 +521,31 @@ async function importSessionFromCSV(db: Low<Data>, sessionId: string, inputPath:
 }
 
 /*
+  Calculate the number of matches played by a player
+*/
+function calculateMatches(db: Low<Data>, playerName: string): number {
+  let matches = 0;
+  
+  db.data.sessions.forEach(session => {
+    session.rounds.forEach(round => {
+      round.sets.forEach(set => {
+        // Check if the player is in this set
+        const playerTeamIndex = set.teams.findIndex(teamSet => 
+          teamSet.team.players.includes(playerName)
+        );
+        
+        // If player is in this set and points have been recorded
+        if (playerTeamIndex !== -1 && (set.teams[0].points > 0 || set.teams[1].points > 0)) {
+          matches += 1;
+        }
+      });
+    });
+  });
+  
+  return matches;
+}
+
+/*
   Calculate the number of losses for a player by going through all sessions and sets
 */
 function calculateLosses(db: Low<Data>, playerName: string): number {
@@ -563,6 +576,240 @@ function calculateLosses(db: Low<Data>, playerName: string): number {
   return losses;
 }
 
+function displayEloRankings(db: Low<Data>) {
+  const eloRatings = calculateEloRatings(db);
+  const enhancedRankings = calculateEnhancedRankings(eloRatings);
+  
+  console.log("🏆 Elo Player Rankings (Minimum 8 matches required) 🏆");
+  
+  // Find the max length of player names for proper padding
+  const maxPlayerNameLength = Math.max(10, ...enhancedRankings.map((p: EnhancedRanking) => p.name.length));
+  
+  // Headers
+  console.log(
+    "Rank".padEnd(6) +
+    "Player".padStart(maxPlayerNameLength + 2).padEnd(maxPlayerNameLength + 4) +
+    "ELO".padEnd(8) +
+    "W-L".padEnd(10) +
+    "Win%".padEnd(8) +
+    "Pts+".padEnd(8) +
+    "Pts-".padEnd(8) +
+    "Pt. Diff".padEnd(10) +
+    "Matches"
+  );
+  
+  console.log(
+    "----".padEnd(6) +
+    "-".repeat(maxPlayerNameLength + 3).padEnd(maxPlayerNameLength + 4) +
+    "-----".padEnd(8) +
+    "-----".padEnd(10) +
+    "-----".padEnd(8) +
+    "----".padEnd(8) +
+    "----".padEnd(8) +
+    "--------".padEnd(10) +
+    "-------"
+  );
+  
+  enhancedRankings.forEach((ranking: EnhancedRanking, index: number) => {
+    const playerName = ranking.name;
+    const winRate = (ranking.winRate * 100).toFixed(1) + '%';
+    
+    // Emoji for top 3 players
+    let rankStr = "";
+    if (index === 0) rankStr = "🥇 ";
+    else if (index === 1) rankStr = "🥈 ";
+    else if (index === 2) rankStr = "🥉 ";
+    else rankStr = `${index + 1}.  `;
+    
+    console.log(
+      `${rankStr.padEnd(4)} ` +
+      `${playerName.padStart(maxPlayerNameLength + 2).padEnd(maxPlayerNameLength + 6)}` +
+      `${Math.round(ranking.elo).toString().padEnd(8)}` +
+      `${ranking.wins}-${ranking.losses}`.padEnd(10) +
+      `${winRate.padEnd(8)}` +
+      `${ranking.pointsWon.toString().padEnd(8)}` +
+      `${ranking.pointsConceded.toString().padEnd(8)}` +
+      `${ranking.pointDifferential > 0 ? '+' : ''}${ranking.pointDifferential.toString().padEnd(8)}` +
+      `${ranking.matchesPlayed.toString()}`
+    );
+  });
+}
+
+/**
+ * Displays a simplified version of the Elo player rankings that is easy to share in messaging apps
+ */
+function displaySimpleEloRankings(db: Low<Data>) {
+  const eloRatings = calculateEloRatings(db);
+  const enhancedRankings = calculateEnhancedRankings(eloRatings);
+  
+  console.log("🏆 Current Player Rankings (Min. 8 matches) 🏆");
+  
+  enhancedRankings.forEach((ranking: EnhancedRanking, index: number) => {
+    const winRate = Math.round(ranking.winRate * 100);
+    
+    // Emoji for top 3 players
+    let rankEmoji = "";
+    if (index === 0) rankEmoji = "🥇 ";
+    else if (index === 1) rankEmoji = "🥈 ";
+    else if (index === 2) rankEmoji = "🥉 ";
+    else rankEmoji = `${index + 1}. `;
+    
+    console.log(
+      `${rankEmoji}${ranking.name}: ${Math.round(ranking.elo)} ELO, ${ranking.wins}W-${ranking.losses}L (${winRate}%), ` +
+      `${ranking.pointDifferential > 0 ? '+' : ''}${ranking.pointDifferential} pts`
+    );
+  });
+}
+
+/**
+ * Displays detailed Elo statistics for a specific player
+ */
+function displayPlayerEloStats(db: Low<Data>, playerName: string) {
+  // First check if the player exists and get their match count
+  let matchCount = 0;
+  let playerExists = false;
+  
+  db.data.sessions.forEach(session => {
+    session.rounds.forEach(round => {
+      round.sets.forEach(set => {
+        set.teams.forEach(teamSet => {
+          if (teamSet.team.players.some(name => name.toLowerCase() === playerName.toLowerCase())) {
+            playerExists = true;
+            if (set.teams[0].points > 0 || set.teams[1].points > 0) {
+              matchCount++;
+            }
+          }
+        });
+      });
+    });
+  });
+  
+  if (!playerExists) {
+    console.error(`Player '${playerName}' not found in the database.`);
+    return;
+  }
+  
+  if (matchCount < 8) {
+    console.log(`\n🏐 Player Stats: ${playerName} 🏐\n`);
+    console.log(`Matches Played: ${matchCount}`);
+    console.log(`Player needs at least 8 matches to receive an Elo ranking (currently has ${matchCount}).`);
+    return;
+  }
+  
+  const eloRatings = calculateEloRatings(db);
+  const enhancedRankings = calculateEnhancedRankings(eloRatings);
+  
+  const playerRanking = enhancedRankings.find((p: EnhancedRanking) => p.name.toLowerCase() === playerName.toLowerCase());
+  
+  if (!playerRanking) {
+    console.error(`Player '${playerName}' not found in the rankings.`);
+    return;
+  }
+  
+  const rank = enhancedRankings.findIndex((p: EnhancedRanking) => p.name === playerRanking.name) + 1;
+  
+  console.log(`\n🏐 Player Stats: ${playerRanking.name} 🏐\n`);
+  console.log(`Current Rank: ${rank} of ${enhancedRankings.length}`);
+  console.log(`Elo Rating: ${Math.round(playerRanking.elo)}`);
+  console.log(`\nPerformance:`);
+  console.log(`Matches Played: ${playerRanking.matchesPlayed}`);
+  console.log(`Record: ${playerRanking.wins}W - ${playerRanking.losses}L (${(playerRanking.winRate * 100).toFixed(1)}%)`);
+  console.log(`Points Scored: ${playerRanking.pointsWon} (${playerRanking.avgPointsPerGame.toFixed(1)} per match)`);
+  console.log(`Points Conceded: ${playerRanking.pointsConceded}`);
+  console.log(`Point Differential: ${playerRanking.pointDifferential > 0 ? '+' : ''}${playerRanking.pointDifferential} (${playerRanking.avgPointDiffPerGame.toFixed(1)} per match)`);
+  console.log(`Consistency Rating: ${(playerRanking.consistency * 100).toFixed(1)}%`);
+  
+  // Add head-to-head stats
+  console.log(`\nHead-to-Head Records:`);
+  
+  const headToHead = calculateHeadToHeadRecords(db, playerName);
+  
+  if (headToHead.length === 0) {
+    console.log("No head-to-head records found.");
+  } else {
+    headToHead.sort((a, b) => b.matchesPlayed - a.matchesPlayed);
+    
+    headToHead.forEach(record => {
+      const winRate = record.matchesPlayed > 0 ? (record.wins / record.matchesPlayed * 100).toFixed(1) : "0.0";
+      console.log(
+        `vs. ${record.opponent.padEnd(20)} ${record.wins}W - ${record.losses}L` +
+        ` (${winRate}%) in ${record.matchesPlayed} matches, Pt Diff: ${record.pointDifferential > 0 ? '+' : ''}${record.pointDifferential}`
+      );
+    });
+  }
+}
+
+/**
+ * Head-to-head record between two players
+ */
+type HeadToHeadRecord = {
+  opponent: string;
+  wins: number;
+  losses: number;
+  matchesPlayed: number;
+  pointsFor: number;
+  pointsAgainst: number;
+  pointDifferential: number;
+};
+
+/**
+ * Calculates head-to-head records for a player against all opponents
+ */
+function calculateHeadToHeadRecords(db: Low<Data>, playerName: string): HeadToHeadRecord[] {
+  const records: Record<string, HeadToHeadRecord> = {};
+  
+  db.data.sessions.forEach(session => {
+    session.rounds.forEach(round => {
+      round.sets.forEach(set => {
+        if (set.teams.length !== 2) return;
+        
+        const team1 = set.teams[0];
+        const team2 = set.teams[1];
+        
+        // Skip matches with no scores
+        if (team1.points === 0 && team2.points === 0) return;
+        
+        // Find which team the player is on
+        const isInTeam1 = team1.team.players.includes(playerName);
+        const isInTeam2 = team2.team.players.includes(playerName);
+        
+        if (!isInTeam1 && !isInTeam2) return;
+        
+        const playerTeam = isInTeam1 ? team1 : team2;
+        const opponentTeam = isInTeam1 ? team2 : team1;
+        
+        // Update record against each opponent
+        opponentTeam.team.players.forEach(opponent => {
+          if (!records[opponent]) {
+            records[opponent] = {
+              opponent,
+              wins: 0,
+              losses: 0,
+              matchesPlayed: 0,
+              pointsFor: 0,
+              pointsAgainst: 0,
+              pointDifferential: 0
+            };
+          }
+          
+          records[opponent].matchesPlayed++;
+          records[opponent].pointsFor += playerTeam.points;
+          records[opponent].pointsAgainst += opponentTeam.points;
+          records[opponent].pointDifferential += playerTeam.points - opponentTeam.points;
+          
+          if (playerTeam.points > opponentTeam.points) {
+            records[opponent].wins++;
+          } else if (playerTeam.points < opponentTeam.points) {
+            records[opponent].losses++;
+          }
+        });
+      });
+    });
+  });
+  
+  return Object.values(records);
+}
+
 async function main() {
   const defaultData: Data = {
     players: [],
@@ -581,6 +828,16 @@ async function main() {
     
   player.command('ranks-simple')
     .action(async () => displaySimpleRankedPlayers(db));
+
+  player.command('elo')
+    .action(async () => displayEloRankings(db));
+    
+  player.command('elo-simple')
+    .action(async () => displaySimpleEloRankings(db));
+
+  player.command('stats')
+    .argument('<name>')
+    .action(async (name: string) => displayPlayerEloStats(db, name));
 
   player.command('pairing-stats')
     .action(async () => displayPairingStats(db));
