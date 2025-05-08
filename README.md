@@ -25,9 +25,8 @@ What is the result that we need?
 - Each court has two teams
 
 ### TODO
-- subs
-- injury
-- weighted combination
+- In elo, account for how good your partner is too
+- Add recency to elo score
 
 ### Database
 A JSON file containing relevant information
