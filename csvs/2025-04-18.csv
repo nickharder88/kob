@@ -1,0 +1,9 @@
+Round,Court,Team 1 Player 1,Team 1 Player 2,Team 2 Player 1,Team 2 Player 2,Points Team 1,Points Team 2
+round-1,1,Abe Binder,Brandon Tartar,Kyle Kowalski,Reid Backstrom,21,17
+round-1,2,Victoria St. George,Hogan Hsu,Sam Kalusa,Nick Harder,17,21
+round-2,1,Abe Binder,Victoria St. George,Hogan Hsu,Brandon Tartar,21,11
+round-2,2,Kyle Kowalski,Sam Kalusa,Nick Harder,Reid Backstrom,21,19
+round-3,1,Abe Binder,Sam Kalusa,Nick Harder,Brandon Tartar,12,21
+round-3,2,Kyle Kowalski,Victoria St. George,Hogan Hsu,Reid Backstrom,21,12
+round-4,1,Abe Binder,Kyle Kowalski,Victoria St. George,Sam Kalusa,21,6
+round-4,2,Nick Harder,Hogan Hsu,Reid Backstrom,Brandon Tartar,19,21
