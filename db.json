@@ -522,7 +522,220 @@
         "Sean Obrien",
         "Kyle Kowalski"
       ],
-      "rounds": []
+      "rounds": [
+        {
+          "id": "round-1",
+          "sets": [
+            {
+              "id": "1-1",
+              "court": 1,
+              "teams": [
+                {
+                  "team": {
+                    "players": [
+                      "Abe Binder",
+                      "David Yang"
+                    ]
+                  },
+                  "points": 0
+                },
+                {
+                  "team": {
+                    "players": [
+                      "Bryan Sanson",
+                      "Daniel Liam"
+                    ]
+                  },
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "id": "1-2",
+              "court": 2,
+              "teams": [
+                {
+                  "team": {
+                    "players": [
+                      "Kyle Kowalski",
+                      "Reid Backstrom"
+                    ]
+                  },
+                  "points": 0
+                },
+                {
+                  "team": {
+                    "players": [
+                      "Sean Obrien",
+                      "Nick Harder"
+                    ]
+                  },
+                  "points": 0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "round-2",
+          "sets": [
+            {
+              "id": "2-1",
+              "court": 1,
+              "teams": [
+                {
+                  "team": {
+                    "players": [
+                      "Kyle Kowalski",
+                      "Nick Harder"
+                    ]
+                  },
+                  "points": 0
+                },
+                {
+                  "team": {
+                    "players": [
+                      "Abe Binder",
+                      "Bryan Sanson"
+                    ]
+                  },
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "id": "2-2",
+              "court": 2,
+              "teams": [
+                {
+                  "team": {
+                    "players": [
+                      "Daniel Liam",
+                      "Reid Backstrom"
+                    ]
+                  },
+                  "points": 0
+                },
+                {
+                  "team": {
+                    "players": [
+                      "David Yang",
+                      "Sean Obrien"
+                    ]
+                  },
+                  "points": 0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "round-3",
+          "sets": [
+            {
+              "id": "3-1",
+              "court": 1,
+              "teams": [
+                {
+                  "team": {
+                    "players": [
+                      "Abe Binder",
+                      "Reid Backstrom"
+                    ]
+                  },
+                  "points": 0
+                },
+                {
+                  "team": {
+                    "players": [
+                      "Daniel Liam",
+                      "Nick Harder"
+                    ]
+                  },
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "id": "3-2",
+              "court": 2,
+              "teams": [
+                {
+                  "team": {
+                    "players": [
+                      "Kyle Kowalski",
+                      "David Yang"
+                    ]
+                  },
+                  "points": 0
+                },
+                {
+                  "team": {
+                    "players": [
+                      "Bryan Sanson",
+                      "Sean Obrien"
+                    ]
+                  },
+                  "points": 0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "round-4",
+          "sets": [
+            {
+              "id": "4-1",
+              "court": 1,
+              "teams": [
+                {
+                  "team": {
+                    "players": [
+                      "Kyle Kowalski",
+                      "Daniel Liam"
+                    ]
+                  },
+                  "points": 0
+                },
+                {
+                  "team": {
+                    "players": [
+                      "Abe Binder",
+                      "Sean Obrien"
+                    ]
+                  },
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "id": "4-2",
+              "court": 2,
+              "teams": [
+                {
+                  "team": {
+                    "players": [
+                      "Bryan Sanson",
+                      "Reid Backstrom"
+                    ]
+                  },
+                  "points": 0
+                },
+                {
+                  "team": {
+                    "players": [
+                      "David Yang",
+                      "Nick Harder"
+                    ]
+                  },
+                  "points": 0
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ]
 }

@@ -272,7 +272,31 @@ async function setPointsToSet(db: Low<Data>, sessionId: string, roundId: string,
   await db.write();
 }
 
-export function generateRoundsCore(players: string[], maxRounds: number, numCourts: number): Round[] {
+/**
+ * Get Elo ratings for a list of players
+ * For players with fewer than 8 matches, use default rating
+ */
+function getPlayerEloMap(db: Low<Data>): Record<string, number> {
+  // Initialize with default rating for all players
+  const eloMap: Record<string, number> = {};
+  
+  // Get player ratings from calculateEloRatings
+  const eloRatings = calculateEloRatings(db);
+  eloRatings.forEach((rating) => {
+    eloMap[rating.name] = rating.elo;
+  });
+  
+  // Ensure all players have a rating (default for new players)
+  db.data.players.forEach(player => {
+    if (eloMap[player.name] === undefined) {
+      eloMap[player.name] = DEFAULT_ELO_CONFIG.initialRating;
+    }
+  });
+  
+  return eloMap;
+}
+
+export function generateRoundsCore(players: string[], maxRounds: number, numCourts: number, db?: Low<Data>): Round[] {
   const rounds: Round[] = [];
 
   if (numCourts === 0) {
@@ -280,27 +304,47 @@ export function generateRoundsCore(players: string[], maxRounds: number, numCour
     return rounds;
   }
 
+  // Sort players alphabetically to ensure consistent results regardless of input order
+  const sortedPlayers = [...players].sort();
+  
+  // Get Elo ratings if database is provided
+  const playerEloMap: Record<string, number> = db ? 
+    getPlayerEloMap(db) : 
+    // Create a map with default values if no database is provided
+    sortedPlayers.reduce((map, player) => {
+      map[player] = DEFAULT_ELO_CONFIG.initialRating;
+      return map;
+    }, {} as Record<string, number>);
+
   // Initialize pairing frequency trackers
   const teammateFrequency: Record<string, Record<string, number>> = {};
   const opponentFrequency: Record<string, Record<string, number>> = {};
+  
+  // Create a separate tracker for pairings within this session generation
+  const sessionTeammateFrequency: Record<string, Record<string, number>> = {};
+  const sessionOpponentFrequency: Record<string, Record<string, number>> = {};
 
-  players.forEach(player => {
+  sortedPlayers.forEach(player => {
     teammateFrequency[player] = {};
     opponentFrequency[player] = {};
-    players.forEach(otherPlayer => {
+    sessionTeammateFrequency[player] = {};
+    sessionOpponentFrequency[player] = {};
+    sortedPlayers.forEach(otherPlayer => {
       if (player !== otherPlayer) {
         teammateFrequency[player][otherPlayer] = 0;
         opponentFrequency[player][otherPlayer] = 0;
+        sessionTeammateFrequency[player][otherPlayer] = 0;
+        sessionOpponentFrequency[player][otherPlayer] = 0;
       }
     });
   });
 
   // Dynamically calculate the maximum allowable pairing frequency
-  const maxPairingFrequency = Math.ceil((maxRounds * numCourts) / (players.length / 2));
+  const maxPairingFrequency = Math.ceil((maxRounds * numCourts) / (sortedPlayers.length / 2));
 
   for (let roundIndex = 0; roundIndex < maxRounds; roundIndex++) {
     const sets: KOBSet[] = [];
-    let availablePlayers = [...players];
+    let availablePlayers = [...sortedPlayers];
 
     for (let courtIndex = 0; courtIndex < numCourts; courtIndex++) {
       if (availablePlayers.length < 4) {
@@ -311,52 +355,196 @@ export function generateRoundsCore(players: string[], maxRounds: number, numCour
       // Select players for the court dynamically to minimize pairing frequency
       const courtPlayers: string[] = [];
 
-      // Select the first player based on lowest frequency with available players
-      availablePlayers.sort((a, b) => {
-        const aFrequency = availablePlayers.reduce((sum, p) => sum + (teammateFrequency[a][p] || 0), 0);
-        const bFrequency = availablePlayers.reduce((sum, p) => sum + (teammateFrequency[b][p] || 0), 0);
-        return aFrequency - bFrequency;
+      // Calculate total teammate frequency for each player to make selection deterministic
+      const playerFrequencies: {player: string, totalFrequency: number}[] = availablePlayers.map(player => {
+        const totalFrequency = availablePlayers.reduce((sum, p) => {
+          if (p === player) return sum;
+          return sum + (teammateFrequency[player][p] || 0) + (opponentFrequency[player][p] || 0);
+        }, 0);
+        return { player, totalFrequency };
       });
-      courtPlayers.push(availablePlayers.shift()!);
 
-      // Select the next three players to minimize both teammate and opponent frequency
+      // Sort by frequency (ascending) and alphabetically (for ties) to ensure deterministic selection
+      playerFrequencies.sort((a, b) => {
+        if (a.totalFrequency !== b.totalFrequency) {
+          return a.totalFrequency - b.totalFrequency;
+        }
+        // If frequencies are equal, sort alphabetically for consistent results
+        return a.player.localeCompare(b.player);
+      });
+
+      // Select first player with lowest frequency
+      courtPlayers.push(playerFrequencies[0].player);
+      availablePlayers = availablePlayers.filter(p => p !== playerFrequencies[0].player);
+
+      // Select the next three players, still ensuring deterministic selection
       for (let i = 0; i < 3; i++) {
-        availablePlayers.sort((a, b) => {
-          const aTeammateFrequency = courtPlayers.reduce((sum, p) => sum + (teammateFrequency[a][p] || 0), 0);
-          const bTeammateFrequency = courtPlayers.reduce((sum, p) => sum + (teammateFrequency[b][p] || 0), 0);
-          const aOpponentFrequency = courtPlayers.reduce((sum, p) => sum + (opponentFrequency[a][p] || 0), 0);
-          const bOpponentFrequency = courtPlayers.reduce((sum, p) => sum + (opponentFrequency[b][p] || 0), 0);
-          return (aTeammateFrequency + aOpponentFrequency) - (bTeammateFrequency + bOpponentFrequency);
+        const playerScores: {player: string, score: number}[] = availablePlayers.map(player => {
+          // Calculate historical pairing score
+          const historicalTeammateScore = courtPlayers.reduce(
+            (sum, p) => sum + (teammateFrequency[player][p] || 0), 0
+          );
+          const historicalOpponentScore = courtPlayers.reduce(
+            (sum, p) => sum + (opponentFrequency[player][p] || 0), 0
+          );
+          
+          // Calculate session-specific pairing score (weighted much higher)
+          const sessionTeammateScore = courtPlayers.reduce(
+            (sum, p) => sum + (sessionTeammateFrequency[player][p] || 0) * 100, 0
+          );
+          const sessionOpponentScore = courtPlayers.reduce(
+            (sum, p) => sum + (sessionOpponentFrequency[player][p] || 0) * 50, 0
+          );
+          
+          return { 
+            player, 
+            // Heavily weight session-specific pairings to avoid duplicates within the same session
+            score: historicalTeammateScore + historicalOpponentScore + sessionTeammateScore + sessionOpponentScore
+          };
         });
 
-        // Ensure players are not paired more than the calculated maximum frequency
-        const selectedPlayer = availablePlayers.find(player => {
-          return courtPlayers.every(existingPlayer => (teammateFrequency[player][existingPlayer] || 0) < maxPairingFrequency);
-        }) || availablePlayers[0];
+        // Sort by score (ascending) and alphabetically (for ties)
+        playerScores.sort((a, b) => {
+          if (a.score !== b.score) {
+            return a.score - b.score;
+          }
+          return a.player.localeCompare(b.player);
+        });
 
+        // Find a player that doesn't exceed max pairing frequency globally
+        // AND hasn't been paired with existing players in this session
+        const eligiblePlayerIndex = playerScores.findIndex(item => {
+          return courtPlayers.every(existingPlayer => {
+            // Check both global and session-specific pairing constraints
+            const globalFrequency = (teammateFrequency[item.player][existingPlayer] || 0);
+            const sessionFrequency = (sessionTeammateFrequency[item.player][existingPlayer] || 0);
+            
+            // Avoid players that have already played together in this session
+            return globalFrequency < maxPairingFrequency && sessionFrequency === 0;
+          });
+        });
+
+        // Use eligible player or first player if none are eligible
+        const selectedIndex = eligiblePlayerIndex !== -1 ? eligiblePlayerIndex : 0;
+        const selectedPlayer = playerScores[selectedIndex].player;
+        
         courtPlayers.push(selectedPlayer);
         availablePlayers = availablePlayers.filter(p => p !== selectedPlayer);
       }
 
-      const team1: Team = { players: [courtPlayers[0], courtPlayers[1]] };
-      const team2: Team = { players: [courtPlayers[2], courtPlayers[3]] };
+      // Create balanced teams based on Elo ratings and pairing history
+      // Get Elo ratings for the 4 players in this court
+      const courtPlayersWithElo = courtPlayers.map(player => ({
+        name: player,
+        elo: playerEloMap[player] || DEFAULT_ELO_CONFIG.initialRating
+      }));
+      
+      // Sort players by Elo rating (descending) to help with balanced team formation
+      courtPlayersWithElo.sort((a, b) => b.elo - a.elo);
+      
+      // Calculate all possible team combinations and their balance scores
+      type TeamOption = {
+        team1Players: [string, string],
+        team2Players: [string, string],
+        eloDifference: number,         // Difference in total Elo between teams (lower is better)
+        pairingScore: number,          // Combined historical teammate frequency (lower is better)
+        sessionPairingScore?: number,  // Combined session-specific teammate frequency (lower is better)
+        overallScore: number           // Combined score for sorting
+      };
+      
+      const teamOptions: TeamOption[] = [];
+      
+      // We need to check all possible team combinations (3 possibilities with 4 players)
+      const combinations = [
+        {
+          t1: [courtPlayersWithElo[0].name, courtPlayersWithElo[3].name], // Highest + lowest Elo
+          t2: [courtPlayersWithElo[1].name, courtPlayersWithElo[2].name]  // 2nd + 3rd Elo
+        },
+        {
+          t1: [courtPlayersWithElo[0].name, courtPlayersWithElo[2].name], 
+          t2: [courtPlayersWithElo[1].name, courtPlayersWithElo[3].name]
+        },
+        {
+          t1: [courtPlayersWithElo[0].name, courtPlayersWithElo[1].name], // Two highest Elo
+          t2: [courtPlayersWithElo[2].name, courtPlayersWithElo[3].name]  // Two lowest Elo
+        }
+      ];
+      
+      combinations.forEach(combo => {
+        // Calculate the historical pairing frequency score (lower is better)
+        const histTeam1PairingScore = teammateFrequency[combo.t1[0]][combo.t1[1]] || 0;
+        const histTeam2PairingScore = teammateFrequency[combo.t2[0]][combo.t2[1]] || 0;
+        const histTotalPairingScore = histTeam1PairingScore + histTeam2PairingScore;
+        
+        // Calculate the session-specific pairing frequency score (lower is better)
+        // This is critical for preventing duplicate pairings within the same session
+        const sessTeam1PairingScore = sessionTeammateFrequency[combo.t1[0]][combo.t1[1]] || 0;
+        const sessTeam2PairingScore = sessionTeammateFrequency[combo.t2[0]][combo.t2[1]] || 0;
+        const sessTotalPairingScore = sessTeam1PairingScore + sessTeam2PairingScore;
+        
+        // Calculate the Elo balance score (lower is better)
+        const team1Elo = (playerEloMap[combo.t1[0]] || DEFAULT_ELO_CONFIG.initialRating) +
+                         (playerEloMap[combo.t1[1]] || DEFAULT_ELO_CONFIG.initialRating);
+        
+        const team2Elo = (playerEloMap[combo.t2[0]] || DEFAULT_ELO_CONFIG.initialRating) +
+                         (playerEloMap[combo.t2[1]] || DEFAULT_ELO_CONFIG.initialRating);
+        
+        const eloDifference = Math.abs(team1Elo - team2Elo);
+        
+        // Calculate overall score (weighted sum of all factors)
+        // Weight session pairings very heavily to prioritize avoiding duplicate pairings in the same session
+        // Weight Elo difference moderately to prioritize balanced teams
+        // Weight historical pairings less as they are less important for the current session
+        const overallScore = 
+              eloDifference * 2 +                   // Elo balance weight (moderate)
+              histTotalPairingScore * 10 +          // Historical pairing weight (low)
+              sessTotalPairingScore * 1000;         // Session pairing weight (very high)
+        
+        teamOptions.push({
+          team1Players: combo.t1 as [string, string],
+          team2Players: combo.t2 as [string, string],
+          eloDifference,
+          pairingScore: histTotalPairingScore,
+          sessionPairingScore: sessTotalPairingScore,
+          overallScore
+        });
+      });
+      
+      // Sort by overall score (ascending) to get the most balanced team with fewest previous pairings
+      teamOptions.sort((a, b) => a.overallScore - b.overallScore);
+      
+      // Use the best team arrangement
+      const team1: Team = { 
+        players: teamOptions[0].team1Players
+      };
+      const team2: Team = { 
+        players: teamOptions[0].team2Players
+      };
 
-      // Update pairing frequencies
+      // Update both historical and session-specific pairing frequencies
       team1.players.forEach(player => {
         team1.players.forEach(teammate => {
-          if (player !== teammate) teammateFrequency[player][teammate]++;
+          if (player !== teammate) {
+            teammateFrequency[player][teammate]++;
+            sessionTeammateFrequency[player][teammate]++;  // Track within current session
+          }
         });
         team2.players.forEach(opponent => {
           opponentFrequency[player][opponent]++;
+          sessionOpponentFrequency[player][opponent]++;    // Track within current session
         });
       });
 
       team2.players.forEach(player => {
         team2.players.forEach(teammate => {
-          if (player !== teammate) teammateFrequency[player][teammate]++;
+          if (player !== teammate) {
+            teammateFrequency[player][teammate]++;
+            sessionTeammateFrequency[player][teammate]++;  // Track within current session
+          }
         });
         team1.players.forEach(opponent => {
           opponentFrequency[player][opponent]++;
+          sessionOpponentFrequency[player][opponent]++;    // Track within current session
         });
       });
 
@@ -395,7 +583,8 @@ async function generateRounds(db: Low<Data>, id: string) {
   const numCourts = Math.floor(numPlayers / 4);
   const maxRounds = 4; // 2 hours / 30 minutes per round
 
-  const rounds = generateRoundsCore(players, maxRounds, numCourts);
+  // Pass the database to use Elo ratings for balanced teams
+  const rounds = generateRoundsCore(players, maxRounds, numCourts, db);
   session.rounds = rounds;
   await db.write();
 }
