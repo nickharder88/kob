@@ -47,6 +47,12 @@
     },
     {
       "name": "Slava Tokarev"
+    },
+    {
+      "name": "Bryan Sanson"
+    },
+    {
+      "name": "Sean Obrien"
     }
   ],
   "sessions": [
@@ -503,6 +509,20 @@
           ]
         }
       ]
+    },
+    {
+      "id": "2025-05-09",
+      "players": [
+        "Abe Binder",
+        "Nick Harder",
+        "Bryan Sanson",
+        "Daniel Liam",
+        "David Yang",
+        "Reid Backstrom",
+        "Sean Obrien",
+        "Kyle Kowalski"
+      ],
+      "rounds": []
     }
   ]
 }
