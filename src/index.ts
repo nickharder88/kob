@@ -1226,7 +1226,310 @@ async function main() {
     .argument('<inputPath>')
     .action(async (sessionId, inputPath) => importSessionFromCSV(db, sessionId, inputPath));
 
+  session.command('analyze')
+    .argument('<sessionId>')
+    .action(async (sessionId) => analyzeSession(db, sessionId));
+
   await program.parseAsync(process.argv);
 }
 
 main().catch((error) => console.trace(error));
+
+/**
+ * Provides a comprehensive analysis of a volleyball session
+ * Analyzes team balance, pairing patterns, and statistical anomalies
+ */
+async function analyzeSession(db: Low<Data>, sessionId: string) {
+  const session = db.data.sessions.find(session => session.id === sessionId);
+  if (!session) {
+    console.error(`Session with ID ${sessionId} not found`);
+    return;
+  }
+
+  // Get player Elo ratings for additional information
+  const playerEloMap = getPlayerEloMap(db);
+  const allPlayers = session.players.sort();
+  
+  console.log(`\n🏐 VOLLEYBALL SESSION ANALYSIS: ${sessionId} 🏐\n`);
+  console.log(`${'-'.repeat(50)}\n`);
+  
+  // 1. BASIC SESSION INFORMATION
+  console.log(`📊 SESSION OVERVIEW:`);
+  console.log(`   Total Players: ${session.players.length}`);
+  console.log(`   Active Players: ${session.players.join(', ')}`);
+  console.log(`   Total Rounds: ${session.rounds.length}`);
+  console.log(`   Total Sets: ${session.rounds.reduce((acc, round) => acc + round.sets.length, 0)}`);
+  console.log(`\n${'-'.repeat(50)}\n`);
+  
+  // 2. PLAYER STATISTICS
+  console.log(`🏅 PLAYER ELO RATINGS:`);
+  const playersByElo = [...session.players].sort((a, b) => 
+    (playerEloMap[b] || 950) - (playerEloMap[a] || 950)
+  );
+  
+  const maxNameLength = Math.max(...session.players.map(name => name.length));
+  playersByElo.forEach(player => {
+    const elo = Math.round(playerEloMap[player] || 950);
+    const eloTier = elo >= 1100 ? '🔥' : elo >= 950 ? '✅' : '⚠️';
+    console.log(`   ${player.padEnd(maxNameLength + 2)}: ${elo} ${eloTier}`);
+  });
+  
+  // Calculate average Elo
+  const avgElo = Math.round(
+    playersByElo.reduce((sum, player) => sum + (playerEloMap[player] || 950), 0) / 
+    playersByElo.length
+  );
+  console.log(`   Average Elo: ${avgElo}`);
+  console.log(`\n${'-'.repeat(50)}\n`);
+  
+  // 3. TEAM BALANCE ANALYSIS
+  console.log(`⚖️  TEAM BALANCE ANALYSIS:`);
+  
+  const eloDifferences: number[] = [];
+  const biggestMismatch = { round: '', court: 0, diff: 0, team1: [] as string[], team2: [] as string[], elo1: 0, elo2: 0 };
+  const mostBalanced = { round: '', court: 0, diff: Infinity, team1: [] as string[], team2: [] as string[], elo1: 0, elo2: 0 };
+  
+  session.rounds.forEach(round => {
+    round.sets.forEach(set => {
+      const team1 = set.teams[0];
+      const team2 = set.teams[1];
+      
+      const team1Elo = Math.round((
+        (playerEloMap[team1.team.players[0]] || 950) + 
+        (playerEloMap[team1.team.players[1]] || 950)
+      ) / 2);
+      
+      const team2Elo = Math.round((
+        (playerEloMap[team2.team.players[0]] || 950) + 
+        (playerEloMap[team2.team.players[1]] || 950)
+      ) / 2);
+      
+      const eloDiff = Math.abs(team1Elo - team2Elo);
+      eloDifferences.push(eloDiff);
+      
+      // Track biggest mismatch
+      if (eloDiff > biggestMismatch.diff) {
+        biggestMismatch.round = round.id;
+        biggestMismatch.court = set.court;
+        biggestMismatch.diff = eloDiff;
+        biggestMismatch.team1 = [...team1.team.players];
+        biggestMismatch.team2 = [...team2.team.players];
+        biggestMismatch.elo1 = team1Elo;
+        biggestMismatch.elo2 = team2Elo;
+      }
+      
+      // Track most balanced
+      if (eloDiff < mostBalanced.diff) {
+        mostBalanced.round = round.id;
+        mostBalanced.court = set.court;
+        mostBalanced.diff = eloDiff;
+        mostBalanced.team1 = [...team1.team.players];
+        mostBalanced.team2 = [...team2.team.players];
+        mostBalanced.elo1 = team1Elo;
+        mostBalanced.elo2 = team2Elo;
+      }
+    });
+  });
+  
+  const avgEloDiff = Math.round(
+    eloDifferences.reduce((sum, diff) => sum + diff, 0) / 
+    eloDifferences.length
+  );
+  
+  console.log(`   Average Elo Difference: ${avgEloDiff}`);
+  console.log(`   Team Balance Rating: ${avgEloDiff < 30 ? 'Excellent ⭐⭐⭐' : avgEloDiff < 50 ? 'Good ⭐⭐' : avgEloDiff < 75 ? 'Fair ⭐' : 'Poor'}`);
+  
+  console.log("\n   Most Balanced Match:");
+  console.log(`     ${mostBalanced.round}, Court ${mostBalanced.court}: [${mostBalanced.team1.join(', ')}] (${mostBalanced.elo1} Elo) vs. [${mostBalanced.team2.join(', ')}] (${mostBalanced.elo2} Elo)`);
+  console.log(`     Elo Difference: ${mostBalanced.diff}`);
+  
+  console.log("\n   Biggest Mismatch:");
+  console.log(`     ${biggestMismatch.round}, Court ${biggestMismatch.court}: [${biggestMismatch.team1.join(', ')}] (${biggestMismatch.elo1} Elo) vs. [${biggestMismatch.team2.join(', ')}] (${biggestMismatch.elo2} Elo)`);
+  console.log(`     Elo Difference: ${biggestMismatch.diff}`);
+  console.log(`\n${'-'.repeat(50)}\n`);
+  
+  // 4. PAIRING ANALYSIS 
+  console.log(`👯 PAIRING ANALYSIS:`);
+  
+  // Track teammate pairings and opponent frequency
+  const teammateFrequency: Record<string, Record<string, number>> = {};
+  const opponentFrequency: Record<string, Record<string, number>> = {};
+  
+  allPlayers.forEach(player => {
+    teammateFrequency[player] = {};
+    opponentFrequency[player] = {};
+    allPlayers.forEach(otherPlayer => {
+      if (player !== otherPlayer) {
+        teammateFrequency[player][otherPlayer] = 0;
+        opponentFrequency[player][otherPlayer] = 0;
+      }
+    });
+  });
+  
+  session.rounds.forEach(round => {
+    round.sets.forEach(set => {
+      const team1 = set.teams[0].team.players;
+      const team2 = set.teams[1].team.players;
+      
+      team1.forEach(player => {
+        team1.forEach(teammate => {
+          if (player !== teammate) {
+            teammateFrequency[player][teammate] = (teammateFrequency[player][teammate] || 0) + 1;
+          }
+        });
+        team2.forEach(opponent => {
+          opponentFrequency[player][opponent] = (opponentFrequency[player][opponent] || 0) + 1;
+          opponentFrequency[opponent][player] = (opponentFrequency[opponent][player] || 0) + 1;
+        });
+      });
+      
+      team2.forEach(player => {
+        team2.forEach(teammate => {
+          if (player !== teammate) {
+            teammateFrequency[player][teammate] = (teammateFrequency[player][teammate] || 0) + 1;
+          }
+        });
+      });
+    });
+  });
+  
+  // Find frequent teammates and opponents
+  const repeatedTeammates: {player1: string, player2: string, count: number}[] = [];
+  const processedTeammatePairs = new Set<string>();
+  
+  allPlayers.forEach(player => {
+    Object.entries(teammateFrequency[player])
+      .filter(([teammate, count]) => count > 1)
+      .forEach(([teammate, count]) => {
+        const pairKey = [player, teammate].sort().join('-');
+        if (!processedTeammatePairs.has(pairKey)) {
+          repeatedTeammates.push({player1: player, player2: teammate, count});
+          processedTeammatePairs.add(pairKey);
+        }
+      });
+  });
+  
+  const frequentOpponents: {player1: string, player2: string, count: number}[] = [];
+  const processedOpponentPairs = new Set<string>();
+  
+  allPlayers.forEach(player => {
+    Object.entries(opponentFrequency[player])
+      .filter(([opponent, count]) => count > 2)
+      .forEach(([opponent, count]) => {
+        const pairKey = [player, opponent].sort().join('-');
+        if (!processedOpponentPairs.has(pairKey)) {
+          frequentOpponents.push({player1: player, player2: opponent, count});
+          processedOpponentPairs.add(pairKey);
+        }
+      });
+  });
+  
+  // Calculate pairing diversity scores
+  console.log("   Teammate Variety Score:");
+  const maxPossibleTeammates = allPlayers.length - 1;
+  const maxPossibleScore = session.rounds.length;
+  
+  allPlayers.forEach(player => {
+    const uniqueTeammates = Object.entries(teammateFrequency[player])
+      .filter(([_, count]) => count > 0)
+      .length;
+    
+    const teammateDiversity = Math.min(uniqueTeammates / maxPossibleTeammates, 1);
+    const emoji = teammateDiversity > 0.7 ? '✅' : teammateDiversity > 0.4 ? '⚠️' : '❌';
+    console.log(`     ${player.padEnd(maxNameLength + 2)}: ${Math.round(teammateDiversity * 100)}% variety ${emoji}`);
+  });
+  
+  // Report problematic pairings
+  if (repeatedTeammates.length > 0) {
+    console.log("\n   Repeated Teammate Pairings:");
+    repeatedTeammates
+      .sort((a, b) => b.count - a.count)
+      .forEach(pair => {
+        console.log(`     ⚠️  ${pair.player1} and ${pair.player2} are teammates ${pair.count} times`);
+      });
+  } else {
+    console.log("\n   ✅ No repeated teammate pairings (optimal)");
+  }
+  
+  if (frequentOpponents.length > 0) {
+    console.log("\n   Frequent Opponent Pairings:");
+    frequentOpponents
+      .sort((a, b) => b.count - a.count)
+      .forEach(pair => {
+        console.log(`     ❌ ${pair.player1} and ${pair.player2} face each other ${pair.count} times as opponents`);
+      });
+  } else {
+    console.log("\n   ✅ No players face each other more than twice as opponents (optimal)");
+  }
+  
+  // 5. DISPLAY SESSION ROUNDS
+  console.log(`\n${'-'.repeat(50)}\n`);
+  console.log(`📋 SESSION ROUNDS:`);
+  
+  session.rounds.forEach((round, roundIndex) => {
+    console.log(`\n   --- ${round.id} ---`);
+    
+    round.sets.forEach(set => {
+      const team1 = set.teams[0];
+      const team2 = set.teams[1];
+      
+      const team1Elo = Math.round((
+        (playerEloMap[team1.team.players[0]] || 950) + 
+        (playerEloMap[team1.team.players[1]] || 950)
+      ) / 2);
+      
+      const team2Elo = Math.round((
+        (playerEloMap[team2.team.players[0]] || 950) + 
+        (playerEloMap[team2.team.players[1]] || 950)
+      ) / 2);
+      
+      const scoreDisplay = team1.points > 0 || team2.points > 0 
+        ? ` | Score: ${team1.points}-${team2.points}` 
+        : '';
+      
+      const eloDiff = Math.abs(team1Elo - team2Elo);
+      const eloBalanceSymbol = eloDiff < 30 ? '✅' : eloDiff < 75 ? '⚠️' : '❌';
+      
+      console.log(
+        `     Court ${set.court}: [${team1.team.players.join(", ")}] (${team1Elo} Elo) vs ` +
+        `[${team2.team.players.join(", ")}] (${team2Elo} Elo) | Diff: ${eloDiff} ${eloBalanceSymbol}${scoreDisplay}`
+      );
+    });
+  });
+  
+  // 6. OVERALL ASSESSMENT
+  console.log(`\n${'-'.repeat(50)}\n`);
+  console.log(`📊 OVERALL SESSION ASSESSMENT:`);
+  
+  // Calculate overall quality score
+  const issues = [];
+  if (repeatedTeammates.length > 0) issues.push("duplicate teammate pairings");
+  if (frequentOpponents.length > 0) issues.push("excessive opponent pairings");
+  if (avgEloDiff > 75) issues.push("large team Elo imbalances");
+  
+  // Overall score based on balance and pairing diversity
+  const balanceScore = Math.max(0, 100 - avgEloDiff);
+  const pairingScore = 100 - (repeatedTeammates.length * 15 + frequentOpponents.length * 20);
+  const overallScore = Math.round((balanceScore * 0.6 + Math.max(0, pairingScore) * 0.4));
+  
+  // Rating based on score
+  let rating = '';
+  if (overallScore >= 90) rating = 'Excellent ⭐⭐⭐⭐⭐';
+  else if (overallScore >= 80) rating = 'Very Good ⭐⭐⭐⭐';
+  else if (overallScore >= 70) rating = 'Good ⭐⭐⭐';
+  else if (overallScore >= 60) rating = 'Fair ⭐⭐';
+  else if (overallScore >= 50) rating = 'Needs Improvement ⭐';
+  else rating = 'Poor';
+  
+  console.log(`   Session Quality Score: ${overallScore}/100 - ${rating}`);
+  console.log(`   Team Balance Score: ${balanceScore}/100`);
+  console.log(`   Pairing Diversity Score: ${Math.max(0, pairingScore)}/100`);
+  
+  if (issues.length === 0) {
+    console.log("\n   ✅ This session is well-balanced with optimal player pairings");
+  } else {
+    console.log(`\n   ⚠️  Areas for improvement: ${issues.join(", ")}`);
+  }
+  
+  console.log(`\n${'-'.repeat(50)}\n`);
+}
