@@ -224,7 +224,6 @@ export function calculateEloRatings<T extends {
 
   // Convert to array and sort by Elo rating
   return Object.values(playerRatings)
-    .filter(player => player.matchesPlayed >= 8) // Only include players who have played at least 8 matches
     .sort((a, b) => b.elo - a.elo);
 }
 
