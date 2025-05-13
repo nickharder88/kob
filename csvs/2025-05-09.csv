@@ -1,9 +1,9 @@
 Round,Court,Team 1 Player 1,Team 1 Player 2,Team 2 Player 1,Team 2 Player 2,Points Team 1,Points Team 2
-round-1,1,Daniel Liam,David Yang,Abe Binder,Bryan Sanson,0,0
-round-1,2,Kyle Kowalski,Reid Backstrom,Sean Obrien,Nick Harder,0,0
-round-2,1,Kyle Kowalski,Nick Harder,Daniel Liam,Abe Binder,0,0
-round-2,2,Bryan Sanson,David Yang,Sean Obrien,Reid Backstrom,0,0
-round-3,1,Abe Binder,Nick Harder,David Yang,Reid Backstrom,0,0
-round-3,2,Kyle Kowalski,Sean Obrien,Daniel Liam,Bryan Sanson,0,0
-round-4,1,Daniel Liam,Sean Obrien,Abe Binder,Reid Backstrom,0,0
-round-4,2,Kyle Kowalski,Bryan Sanson,David Yang,Nick Harder,0,0
+round-1,1,Daniel Liam,Reid Backstrom,Abe Binder,Bryan Sanson,20,22
+round-1,2,Kyle Kowalski,David Yang,Sean Obrien,Nick Harder,21,8
+round-2,1,Kyle Kowalski,Nick Harder,Daniel Liam,Abe Binder,21,19
+round-2,2,Bryan Sanson,David Yang,Sean Obrien,Reid Backstrom,9,21
+round-3,1,Abe Binder,Nick Harder,David Yang,Reid Backstrom,21,12
+round-3,2,Kyle Kowalski,Sean Obrien,Daniel Liam,Bryan Sanson,21,12
+round-4,1,Daniel Liam,Sean Obrien,Abe Binder,Reid Backstrom,21,18
+round-4,2,Kyle Kowalski,Bryan Sanson,David Yang,Nick Harder,21,9
