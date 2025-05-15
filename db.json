@@ -750,7 +750,220 @@
         "Teoh Zheyi",
         "Joshua Moutry"
       ],
-      "rounds": []
+      "rounds": [
+        {
+          "id": "round-1",
+          "sets": [
+            {
+              "id": "1-1",
+              "court": 1,
+              "teams": [
+                {
+                  "team": {
+                    "players": [
+                      "Kyle Kowalski",
+                      "Joshua Moutry"
+                    ]
+                  },
+                  "points": 0
+                },
+                {
+                  "team": {
+                    "players": [
+                      "Brandon Tartar",
+                      "Abe Binder"
+                    ]
+                  },
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "id": "1-2",
+              "court": 2,
+              "teams": [
+                {
+                  "team": {
+                    "players": [
+                      "Victoria St. George",
+                      "Reid Backstrom"
+                    ]
+                  },
+                  "points": 0
+                },
+                {
+                  "team": {
+                    "players": [
+                      "Nick Harder",
+                      "Teoh Zheyi"
+                    ]
+                  },
+                  "points": 0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "round-2",
+          "sets": [
+            {
+              "id": "2-1",
+              "court": 1,
+              "teams": [
+                {
+                  "team": {
+                    "players": [
+                      "Abe Binder",
+                      "Nick Harder"
+                    ]
+                  },
+                  "points": 0
+                },
+                {
+                  "team": {
+                    "players": [
+                      "Joshua Moutry",
+                      "Reid Backstrom"
+                    ]
+                  },
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "id": "2-2",
+              "court": 2,
+              "teams": [
+                {
+                  "team": {
+                    "players": [
+                      "Kyle Kowalski",
+                      "Teoh Zheyi"
+                    ]
+                  },
+                  "points": 0
+                },
+                {
+                  "team": {
+                    "players": [
+                      "Victoria St. George",
+                      "Brandon Tartar"
+                    ]
+                  },
+                  "points": 0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "round-3",
+          "sets": [
+            {
+              "id": "3-1",
+              "court": 1,
+              "teams": [
+                {
+                  "team": {
+                    "players": [
+                      "Brandon Tartar",
+                      "Teoh Zheyi"
+                    ]
+                  },
+                  "points": 0
+                },
+                {
+                  "team": {
+                    "players": [
+                      "Abe Binder",
+                      "Joshua Moutry"
+                    ]
+                  },
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "id": "3-2",
+              "court": 2,
+              "teams": [
+                {
+                  "team": {
+                    "players": [
+                      "Kyle Kowalski",
+                      "Victoria St. George"
+                    ]
+                  },
+                  "points": 0
+                },
+                {
+                  "team": {
+                    "players": [
+                      "Nick Harder",
+                      "Reid Backstrom"
+                    ]
+                  },
+                  "points": 0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "round-4",
+          "sets": [
+            {
+              "id": "4-1",
+              "court": 1,
+              "teams": [
+                {
+                  "team": {
+                    "players": [
+                      "Kyle Kowalski",
+                      "Reid Backstrom"
+                    ]
+                  },
+                  "points": 0
+                },
+                {
+                  "team": {
+                    "players": [
+                      "Abe Binder",
+                      "Teoh Zheyi"
+                    ]
+                  },
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "id": "4-2",
+              "court": 2,
+              "teams": [
+                {
+                  "team": {
+                    "players": [
+                      "Brandon Tartar",
+                      "Joshua Moutry"
+                    ]
+                  },
+                  "points": 0
+                },
+                {
+                  "team": {
+                    "players": [
+                      "Victoria St. George",
+                      "Nick Harder"
+                    ]
+                  },
+                  "points": 0
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ]
 }

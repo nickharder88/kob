@@ -29,7 +29,7 @@ export type EloConfig = {
  */
 export const DEFAULT_ELO_CONFIG: EloConfig = {
   initialRating: 1000,
-  kFactor: 32,
+  kFactor: 64,
   kFactorMin: 16,
   kFactorDecay: 0.1,
   pointDiffWeight: 0.01
