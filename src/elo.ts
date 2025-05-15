@@ -134,11 +134,8 @@ export function updatePlayerRatings(
  * @param config - Elo configuration parameters
  * @returns Array of player ratings sorted by Elo rating (highest first)
  */
-export function calculateEloRatings<T extends { 
-  players: { name: string }[],
-  sessions: { id: string, rounds: Round[] }[]
-}>(
-  db: Low<T>,
+export function calculateEloRatings(
+  db: Low<Data>,
   config: EloConfig = DEFAULT_ELO_CONFIG
 ): PlayerRating[] {
   if (!db.data) return [];
@@ -148,7 +145,7 @@ export function calculateEloRatings<T extends {
   db.data.players.forEach(player => {
     playerRatings[player.name] = {
       name: player.name,
-      elo: config.initialRating,
+      elo: player.defaultElo || config.initialRating,
       wins: 0,
       losses: 0,
       pointsWon: 0,

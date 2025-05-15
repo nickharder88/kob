@@ -31,7 +31,8 @@
       "name": "Reid Backstrom"
     },
     {
-      "name": "Teoh Zheyi"
+      "name": "Teoh Zheyi",
+      "defaultElo": 950
     },
     {
       "name": "Victoria St. George"

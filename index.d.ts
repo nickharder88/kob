@@ -3,6 +3,7 @@ export {}
 declare global {
   type Player = {
     name: string;
+    defaultElo?: number;
   }
 
   type Team = {
