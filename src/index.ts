@@ -312,7 +312,7 @@ export function generateRoundsCore(players: string[], maxRounds: number, numCour
     getPlayerEloMap(db) : 
     // Create a map with default values if no database is provided
     sortedPlayers.reduce((map, player) => {
-      map[player] = 950; // Default Elo rating
+      map[player] = DEFAULT_ELO_CONFIG.initialRating; // Default Elo rating
       return map;
     }, {} as Record<string, number>);
 
@@ -522,11 +522,11 @@ export function generateRoundsCore(players: string[], maxRounds: number, numCour
         });
         
         // Calculate the Elo balance score (lower is better)
-        const team1Elo = (playerEloMap[combo.t1[0]] || 950) +
-                         (playerEloMap[combo.t1[1]] || 950);
+        const team1Elo = (playerEloMap[combo.t1[0]] || DEFAULT_ELO_CONFIG.initialRating) +
+                         (playerEloMap[combo.t1[1]] || DEFAULT_ELO_CONFIG.initialRating);
         
-        const team2Elo = (playerEloMap[combo.t2[0]] || 950) +
-                         (playerEloMap[combo.t2[1]] || 950);
+        const team2Elo = (playerEloMap[combo.t2[0]] || DEFAULT_ELO_CONFIG.initialRating) +
+                         (playerEloMap[combo.t2[1]] || DEFAULT_ELO_CONFIG.initialRating);
         
         const eloDifference = Math.abs(team1Elo - team2Elo);
         
@@ -990,7 +990,7 @@ function displayEloRankings(db: Low<Data>) {
  */
 function displaySimpleEloRankings(db: Low<Data>) {
   const eloRatings = calculateEloRatings(db);
-  const enhancedRankings = calculateEnhancedRankings(eloRatings);
+  const enhancedRankings = calculateEnhancedRankings(eloRatings).filter(p => p.matchesPlayed >= 8);
   
   console.log("🏆 Current Player Rankings (Min. 8 matches) 🏆");
   
@@ -1264,19 +1264,19 @@ async function analyzeSession(db: Low<Data>, sessionId: string) {
   // 2. PLAYER STATISTICS
   console.log(`🏅 PLAYER ELO RATINGS:`);
   const playersByElo = [...session.players].sort((a, b) => 
-    (playerEloMap[b] || 950) - (playerEloMap[a] || 950)
+    (playerEloMap[b] || DEFAULT_ELO_CONFIG.initialRating) - (playerEloMap[a] || DEFAULT_ELO_CONFIG.initialRating)
   );
   
   const maxNameLength = Math.max(...session.players.map(name => name.length));
   playersByElo.forEach(player => {
-    const elo = Math.round(playerEloMap[player] || 950);
+    const elo = Math.round(playerEloMap[player] || DEFAULT_ELO_CONFIG.initialRating);
     const eloTier = elo >= 1100 ? '🔥' : elo >= 950 ? '✅' : '⚠️';
     console.log(`   ${player.padEnd(maxNameLength + 2)}: ${elo} ${eloTier}`);
   });
   
   // Calculate average Elo
   const avgElo = Math.round(
-    playersByElo.reduce((sum, player) => sum + (playerEloMap[player] || 950), 0) / 
+    playersByElo.reduce((sum, player) => sum + (playerEloMap[player] || DEFAULT_ELO_CONFIG.initialRating), 0) / 
     playersByElo.length
   );
   console.log(`   Average Elo: ${avgElo}`);
@@ -1295,13 +1295,13 @@ async function analyzeSession(db: Low<Data>, sessionId: string) {
       const team2 = set.teams[1];
       
       const team1Elo = Math.round((
-        (playerEloMap[team1.team.players[0]] || 950) + 
-        (playerEloMap[team1.team.players[1]] || 950)
+        (playerEloMap[team1.team.players[0]] || DEFAULT_ELO_CONFIG.initialRating) + 
+        (playerEloMap[team1.team.players[1]] || DEFAULT_ELO_CONFIG.initialRating)
       ) / 2);
       
       const team2Elo = Math.round((
-        (playerEloMap[team2.team.players[0]] || 950) + 
-        (playerEloMap[team2.team.players[1]] || 950)
+        (playerEloMap[team2.team.players[0]] || DEFAULT_ELO_CONFIG.initialRating) + 
+        (playerEloMap[team2.team.players[1]] || DEFAULT_ELO_CONFIG.initialRating)
       ) / 2);
       
       const eloDiff = Math.abs(team1Elo - team2Elo);
@@ -1474,13 +1474,13 @@ async function analyzeSession(db: Low<Data>, sessionId: string) {
       const team2 = set.teams[1];
       
       const team1Elo = Math.round((
-        (playerEloMap[team1.team.players[0]] || 950) + 
-        (playerEloMap[team1.team.players[1]] || 950)
+        (playerEloMap[team1.team.players[0]] || DEFAULT_ELO_CONFIG.initialRating) + 
+        (playerEloMap[team1.team.players[1]] || DEFAULT_ELO_CONFIG.initialRating)
       ) / 2);
       
       const team2Elo = Math.round((
-        (playerEloMap[team2.team.players[0]] || 950) + 
-        (playerEloMap[team2.team.players[1]] || 950)
+        (playerEloMap[team2.team.players[0]] || DEFAULT_ELO_CONFIG.initialRating) + 
+        (playerEloMap[team2.team.players[1]] || DEFAULT_ELO_CONFIG.initialRating)
       ) / 2);
       
       const scoreDisplay = team1.points > 0 || team2.points > 0 
