@@ -54,6 +54,10 @@
     },
     {
       "name": "Sean Obrien"
+    },
+    {
+      "name": "Allan Zhang",
+      "defaultElo": 950
     }
   ],
   "sessions": [
@@ -744,11 +748,11 @@
         "Abe Binder",
         "Nick Harder",
         "Victoria St. George",
-        "Brandon Tartar",
         "Reid Backstrom",
         "Kyle Kowalski",
         "Teoh Zheyi",
-        "Joshua Moutry"
+        "Joshua Moutry",
+        "Allan Zhang"
       ],
       "rounds": []
     }
