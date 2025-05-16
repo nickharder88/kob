@@ -1168,10 +1168,29 @@ async function main() {
 
   const db = await JSONFilePreset<Data>('db.json', defaultData);
 
+
   const player = program.command('player');
   player.command('add')
     .argument('<name>')
     .action(async (name: string) => addPlayer(db, name));
+
+  player.command('head-to-head')
+    .argument('<name>')
+    .action(async (name: string) => {
+      const records = calculateHeadToHeadRecords(db, name);
+      if (records.length === 0) {
+        console.log(`No head-to-head records found for ${name}.`);
+        return;
+      }
+      console.log(`Head-to-Head Results for ${name}:`);
+      records.forEach(record => {
+        console.log(
+          `${record.opponent}: ${record.wins}W-${record.losses}L ` +
+          `(${record.pointsFor} pts for, ${record.pointsAgainst} pts against, ` +
+          `Diff: ${record.pointDifferential})`
+        );
+      });
+    });
 
   player.command('ranks')
     .action(async () => displayRankedPlayers(db));

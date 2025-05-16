@@ -32,7 +32,7 @@
     },
     {
       "name": "Teoh Zheyi",
-      "defaultElo": 900
+      "defaultElo": 925
     },
     {
       "name": "Victoria St. George"
@@ -57,7 +57,7 @@
     },
     {
       "name": "Allan Zhang",
-      "defaultElo": 900
+      "defaultElo": 925
     }
   ],
   "sessions": [
@@ -925,7 +925,7 @@
                   "team": {
                     "players": [
                       "Kyle Kowalski",
-                      "Nick Harder"
+                      "Victoria St. George"
                     ]
                   },
                   "points": 0
@@ -934,7 +934,7 @@
                   "team": {
                     "players": [
                       "Abe Binder",
-                      "Victoria St. George"
+                      "Nick Harder"
                     ]
                   },
                   "points": 0
