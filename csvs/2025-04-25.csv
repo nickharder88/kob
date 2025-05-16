@@ -1,0 +1,9 @@
+Round,Court,Team 1 Player 1,Team 1 Player 2,Team 2 Player 1,Team 2 Player 2,Points Team 1,Points Team 2
+round-1,1,Will Suarez,Kyle Kowalski,Nick Harder,Slava Tokarev,21,12
+round-1,2,Abe Binder,Reid Backstrom,Victoria St. George,Daniel Liam,17,21
+round-2,1,Will Suarez,Abe Binder,Reid Backstrom,Kyle Kowalski,17,21
+round-2,2,Nick Harder,Victoria St. George,Daniel Liam,Slava Tokarev,16,21
+round-3,1,Will Suarez,Victoria St. George,Daniel Liam,Kyle Kowalski,6,21
+round-3,2,Nick Harder,Abe Binder,Reid Backstrom,Slava Tokarev,21,13
+round-4,1,Will Suarez,Nick Harder,Abe Binder,Victoria St. George,21,19
+round-4,2,Daniel Liam,Reid Backstrom,Slava Tokarev,Kyle Kowalski,14,21
