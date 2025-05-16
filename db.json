@@ -32,7 +32,7 @@
     },
     {
       "name": "Teoh Zheyi",
-      "defaultElo": 950
+      "defaultElo": 900
     },
     {
       "name": "Victoria St. George"
@@ -57,7 +57,7 @@
     },
     {
       "name": "Allan Zhang",
-      "defaultElo": 950
+      "defaultElo": 900
     }
   ],
   "sessions": [
@@ -754,7 +754,220 @@
         "Joshua Moutry",
         "Allan Zhang"
       ],
-      "rounds": []
+      "rounds": [
+        {
+          "id": "round-1",
+          "sets": [
+            {
+              "id": "1-1",
+              "court": 1,
+              "teams": [
+                {
+                  "team": {
+                    "players": [
+                      "Kyle Kowalski",
+                      "Allan Zhang"
+                    ]
+                  },
+                  "points": 0
+                },
+                {
+                  "team": {
+                    "players": [
+                      "Abe Binder",
+                      "Joshua Moutry"
+                    ]
+                  },
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "id": "1-2",
+              "court": 2,
+              "teams": [
+                {
+                  "team": {
+                    "players": [
+                      "Victoria St. George",
+                      "Reid Backstrom"
+                    ]
+                  },
+                  "points": 0
+                },
+                {
+                  "team": {
+                    "players": [
+                      "Nick Harder",
+                      "Teoh Zheyi"
+                    ]
+                  },
+                  "points": 0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "round-2",
+          "sets": [
+            {
+              "id": "2-1",
+              "court": 1,
+              "teams": [
+                {
+                  "team": {
+                    "players": [
+                      "Abe Binder",
+                      "Reid Backstrom"
+                    ]
+                  },
+                  "points": 0
+                },
+                {
+                  "team": {
+                    "players": [
+                      "Nick Harder",
+                      "Allan Zhang"
+                    ]
+                  },
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "id": "2-2",
+              "court": 2,
+              "teams": [
+                {
+                  "team": {
+                    "players": [
+                      "Kyle Kowalski",
+                      "Teoh Zheyi"
+                    ]
+                  },
+                  "points": 0
+                },
+                {
+                  "team": {
+                    "players": [
+                      "Victoria St. George",
+                      "Joshua Moutry"
+                    ]
+                  },
+                  "points": 0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "round-3",
+          "sets": [
+            {
+              "id": "3-1",
+              "court": 1,
+              "teams": [
+                {
+                  "team": {
+                    "players": [
+                      "Kyle Kowalski",
+                      "Joshua Moutry"
+                    ]
+                  },
+                  "points": 0
+                },
+                {
+                  "team": {
+                    "players": [
+                      "Nick Harder",
+                      "Reid Backstrom"
+                    ]
+                  },
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "id": "3-2",
+              "court": 2,
+              "teams": [
+                {
+                  "team": {
+                    "players": [
+                      "Abe Binder",
+                      "Allan Zhang"
+                    ]
+                  },
+                  "points": 0
+                },
+                {
+                  "team": {
+                    "players": [
+                      "Victoria St. George",
+                      "Teoh Zheyi"
+                    ]
+                  },
+                  "points": 0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "round-4",
+          "sets": [
+            {
+              "id": "4-1",
+              "court": 1,
+              "teams": [
+                {
+                  "team": {
+                    "players": [
+                      "Kyle Kowalski",
+                      "Nick Harder"
+                    ]
+                  },
+                  "points": 0
+                },
+                {
+                  "team": {
+                    "players": [
+                      "Abe Binder",
+                      "Victoria St. George"
+                    ]
+                  },
+                  "points": 0
+                }
+              ]
+            },
+            {
+              "id": "4-2",
+              "court": 2,
+              "teams": [
+                {
+                  "team": {
+                    "players": [
+                      "Joshua Moutry",
+                      "Reid Backstrom"
+                    ]
+                  },
+                  "points": 0
+                },
+                {
+                  "team": {
+                    "players": [
+                      "Allan Zhang",
+                      "Teoh Zheyi"
+                    ]
+                  },
+                  "points": 0
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ]
 }
