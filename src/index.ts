@@ -535,10 +535,10 @@ export function generateRoundsCore(players: string[], maxRounds: number, numCour
         // Weight Elo difference moderately to prioritize balanced teams
         // Weight historical pairings less as they are less important for the current session
         const overallScore = 
-              eloDifference * 2 +                   // Elo balance weight (moderate)
-              histTotalPairingScore * 10 +          // Historical pairing weight (low)
-              sessTotalPairingScore * 1000 +        // Session teammate pairing weight (very high)
-              sessionOpponentScore * 1000;           // Session opponent pairing weight (very high)
+              eloDifference * 40 +                // Elo balance weight
+              histTotalPairingScore * 1 +          // Historical pairing weight
+              sessTotalPairingScore * 100 +        // Session teammate pairing weight
+              sessionOpponentScore * 150;          // Session opponent pairing weight
         
         teamOptions.push({
           team1Players: combo.t1 as [string, string],
