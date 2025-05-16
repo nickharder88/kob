@@ -7,6 +7,7 @@ import { stringify } from 'csv-stringify/sync';
 import { parse } from 'csv-parse/sync';
 
 import { 
+  getExpectedScore,
   calculateEloRatings, 
   calculateEnhancedRankings, 
   DEFAULT_ELO_CONFIG, 
@@ -1299,6 +1300,58 @@ async function analyzeSession(db: Low<Data>, sessionId: string) {
     playersByElo.length
   );
   console.log(`   Average Elo: ${avgElo}`);
+  console.log(`\n${'-'.repeat(50)}\n`);
+
+  // 2b. EXPECTED OUTCOMES (Wins, Losses, Point Differential)
+  // We'll use Elo to estimate expected wins/losses for each player in this session
+  // This does not use actual results, only Elo-based probabilities
+  const expectedStats: Record<string, { wins: number, losses: number, pointDiff: number }> = {};
+  session.players.forEach(p => {
+    expectedStats[p] = { wins: 0, losses: 0, pointDiff: 0 };
+  });
+  session.rounds.forEach(round => {
+    round.sets.forEach(set => {
+      if (!set.teams || set.teams.length !== 2) return;
+      const team1 = set.teams[0].team.players;
+      const team2 = set.teams[1].team.players;
+      // Average Elo for each team
+      const team1Elo = (playerEloMap[team1[0]] + playerEloMap[team1[1]]) / 2;
+      const team2Elo = (playerEloMap[team2[0]] + playerEloMap[team2[1]]) / 2;
+      // Expected win probability for team1
+      const exp1 = getExpectedScore(team1Elo, team2Elo);
+      const exp2 = getExpectedScore(team2Elo, team1Elo);
+      // Each player on team1 gets exp1 win, (1-exp1) loss, and point diff (exp1-0.5)
+      team1.forEach(p => {
+        expectedStats[p].wins += exp1;
+        expectedStats[p].losses += (1 - exp1);
+        expectedStats[p].pointDiff += (exp1 - 0.5);
+      });
+      team2.forEach(p => {
+        expectedStats[p].wins += exp2;
+        expectedStats[p].losses += (1 - exp2);
+        expectedStats[p].pointDiff += (exp2 - 0.5);
+      });
+    });
+  });
+  console.log("📈 EXPECTED OUTCOMES (Elo-based, for this session):");
+  console.log(
+    "   Player".padEnd(maxNameLength + 4) +
+    "Exp Wins".padEnd(12) +
+    "Exp Losses".padEnd(14) +
+    "Exp Pt Diff"
+  );
+  session.players.forEach(p => {
+    const s = expectedStats[p];
+    // Point diff is scaled to number of sets, so show as e.g. +1.2 or -0.8
+    const ptDiff = s.pointDiff.toFixed(2);
+    console.log(
+      `   ${p.padEnd(maxNameLength + 4)}` +
+      `${s.wins.toFixed(2).padEnd(12)}` +
+      `${s.losses.toFixed(2).padEnd(14)}` +
+      `${ptDiff.startsWith('-') ? '' : '+'}${ptDiff}`
+    );
+  });
+
   console.log(`\n${'-'.repeat(50)}\n`);
   
   // 3. TEAM BALANCE ANALYSIS
